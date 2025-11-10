@@ -70,7 +70,7 @@ export function apply(ctx: Context, cfg: Config) {
     .option('new', '评选新的大餐王',{hidden: true})
     .action(async (argv)=>{
         if(argv.options.new){
-            if(argv.session.userId!=cfg.master)
+            if(argv.session.userId!=cfg.master && cfg.readers.includes(argv.session.userId))
                 return h.at(argv.session.userId)+" 你不能那么做";
             // todo: generate dcw
             const day = 1000*60*60*24;
@@ -218,7 +218,7 @@ export function apply(ctx: Context, cfg: Config) {
     ctx.command('review ',{ hidden: true })
     .option('num', '-n <val:number>', { fallback: 10 })
     .action(async (argv)=>{
-        if(argv.session.userId!=cfg.master)
+        if(argv.session.userId!=cfg.master && cfg.readers.includes(argv.session.userId))
             return h.at(argv.session.userId)+" 你不能那么做";
         let idx = 0;
         var pending_dcs = await ctx.database.get('pending_dc_table', {});
@@ -246,7 +246,7 @@ image:
     ctx.command('accept [...args:number]', { hidden: true })
     .alias('ac')
     .action(async (argv, ...args)=>{
-        if(argv.session.userId!=cfg.master)
+        if(argv.session.userId!=cfg.master && cfg.readers.includes(argv.session.userId))
             return h.at(argv.session.userId)+" 你不能那么做";
         if(args.length == 0)
             return;
@@ -272,7 +272,7 @@ image:
     ctx.command('deny [...args:number]',{ hidden: true })
     .alias('dn')
     .action(async (argv, ...args)=>{
-        if(argv.session.userId!=cfg.master)
+        if(argv.session.userId!=cfg.master && cfg.readers.includes(argv.session.userId))
             return h.at(argv.session.userId)+" 你不能那么做";
         if(args.length == 0)
             return;
