@@ -165,11 +165,11 @@ export function apply(ctx: Context, cfg: Config) {
             const options:Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric' };
             const locale = "zh-CN";
             return `<>
-            一周大餐王(${new Date(w.start).toLocaleDateString(locale, options)}~${new Date(w.end).toLocaleDateString(locale, options)}):<br/>
-            <at id="${w.id}"/> 大餐${w.times}次<br/><br/>
-            一月大餐王(${new Date(m.start).toLocaleDateString(locale, options)}~${new Date(m.end).toLocaleDateString(locale, options)}):<br/>
-            <at id="${m.id}"/> 大餐${m.times}次
-            </>`;
+一周大餐王(${new Date(w.start).toLocaleDateString(locale, options)}~${new Date(w.end).toLocaleDateString(locale, options)}):<br/>
+<at id="${w.id}"/> 大餐${w.times}次<br/><br/>
+一月大餐王(${new Date(m.start).toLocaleDateString(locale, options)}~${new Date(m.end).toLocaleDateString(locale, options)}):<br/>
+<at id="${m.id}"/> 大餐${m.times}次
+</>`;
         }
     });
 
@@ -243,26 +243,69 @@ image:
         return;
     });
 
-    ctx.command('accept [...args:number]', { hidden: true })
+    // ctx.command('accept [...args:number]', { hidden: true })
+    // .alias('ac')
+    // .action(async (argv, ...args)=>{
+    //     if(argv.session.userId!=cfg.master && cfg.readers.includes(argv.session.userId))
+    //         return h.at(argv.session.userId)+" 你不能那么做";
+    //     if(args.length == 0)
+    //         return;
+    //     await ctx.database.get('pending_dc_table', {id: args})
+    //     .then(async (items) => {
+    //         var tasks = [];
+    //         for(let item of items){
+    //             if(!fs.existsSync(path + item.channelId + '/' +item.user)){
+    //                 fs.mkdirSync(path + item.channelId + '/' +item.user, {recursive:true});
+    //             }
+    //             fs.copyFileSync(temp_path + item.path, path + item.channelId + '/' + item.user+ '/' + item.path);
+    //         }
+    //         await Promise.all(tasks);
+    //         return ctx.database.upsert('dc_table', items);
+    //     }).then((result)=>{
+    //         return argv.session.send(`${result.inserted + result.modified}/${args.length}条大餐记录已加入`);
+    //     }).then(()=>{
+    //         return ctx.database.remove('pending_dc_table', {id: args});
+    //     });
+    //     return;
+    // });
+
+    ctx.command('accept [..._args:text]', { hidden: true })
     .alias('ac')
-    .action(async (argv, ...args)=>{
+    .action(async (argv, ..._args)=>{
         if(argv.session.userId!=cfg.master && cfg.readers.includes(argv.session.userId))
             return h.at(argv.session.userId)+" 你不能那么做";
-        if(args.length == 0)
+        if(_args.length == 0)
             return;
+
+        // expand args
+        let err_msg = "";
+        let args:Array<number> = [];
+        for(let _arg of _args){
+            if(Number.isInteger(Number(_arg))){
+                args.push(Number(_arg));
+            }
+            else if(_arg.split('-').length == 2){
+                let [start, end] = _arg.split('-').map(val => Number(val));
+                if(Number.isInteger(start) && Number.isInteger(end)){
+                    args.push(...[...Array(end - start + 1).keys()].map(i => i + start))
+                }
+            }
+            else{
+                err_msg += `\n错误序号: ${_arg}，已忽略`
+            }
+        }
+
         await ctx.database.get('pending_dc_table', {id: args})
         .then(async (items) => {
-            var tasks = [];
             for(let item of items){
                 if(!fs.existsSync(path + item.channelId + '/' +item.user)){
                     fs.mkdirSync(path + item.channelId + '/' +item.user, {recursive:true});
                 }
                 fs.copyFileSync(temp_path + item.path, path + item.channelId + '/' + item.user+ '/' + item.path);
             }
-            await Promise.all(tasks);
             return ctx.database.upsert('dc_table', items);
         }).then((result)=>{
-            return argv.session.send(`${result.inserted + result.modified}/${args.length}条大餐记录已加入`);
+            return argv.session.send(`${result.inserted + result.modified}/${args.length}条大餐记录已加入${err_msg}`);
         }).then(()=>{
             return ctx.database.remove('pending_dc_table', {id: args});
         });
@@ -278,8 +321,7 @@ image:
             return;
         await ctx.database.remove('pending_dc_table', {id: args})
         .then((result)=>{
-            // fs.rmSync(result.);
-            argv.session.send(`${result.removed}/${args.length}条大餐记录已拒绝`);
+            return argv.session.send(`${result.removed}/${args.length}条大餐记录已拒绝`);
         });
         return;
     });
