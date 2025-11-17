@@ -269,7 +269,7 @@ image:
     //     return;
     // });
 
-    ctx.command('accept [..._args:text]', { hidden: true })
+    ctx.command('accept [..._args:string]', { hidden: true })
     .alias('ac')
     .action(async (argv, ..._args)=>{
         if(argv.session.userId!=cfg.master && cfg.readers.includes(argv.session.userId))
@@ -304,10 +304,10 @@ image:
                 fs.copyFileSync(temp_path + item.path, path + item.channelId + '/' + item.user+ '/' + item.path);
             }
             return ctx.database.upsert('dc_table', items);
-        }).then((result)=>{
-            return argv.session.send(`${result.inserted + result.modified}/${args.length}条大餐记录已加入${err_msg}`);
         }).then(()=>{
             return ctx.database.remove('pending_dc_table', {id: args});
+        }).then((result)=>{
+            return argv.session.send(`${result.inserted + result.modified}/${args.length}条大餐记录已加入${err_msg}`);
         });
         return;
     });
