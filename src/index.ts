@@ -295,6 +295,7 @@ image:
             }
         }
 
+        let inserted = 0;
         await ctx.database.get('pending_dc_table', {id: args})
         .then(async (items) => {
             for(let item of items){
@@ -304,10 +305,11 @@ image:
                 fs.copyFileSync(temp_path + item.path, path + item.channelId + '/' + item.user+ '/' + item.path);
             }
             return ctx.database.upsert('dc_table', items);
-        }).then(()=>{
-            return ctx.database.remove('pending_dc_table', {id: args});
         }).then((result)=>{
-            return argv.session.send(`${result.inserted + result.modified}/${args.length}条大餐记录已加入${err_msg}`);
+            inserted = result.inserted + result.modified;
+            return ctx.database.remove('pending_dc_table', {id: args});
+        }).then(()=>{
+            return argv.session.send(`${inserted}/${args.length}条大餐记录已加入${err_msg}`);
         });
         return;
     });
