@@ -454,9 +454,30 @@ image:
             return "image/jpeg";
     }
 
+    function parse_date(datastr: string){
+        if(datastr.trim().length == 0)
+            return null;
+        
+        let date_pair = datastr.trim().split('~');
+        let start_stamp = Date.parse(date_pair[0]);
+        if(isNaN(start_stamp)){
+            return null;
+        }
+        let end_stamp = start_stamp + 86400 * 1000; // a day
+        if(date_pair.length > 1){
+            let tmp = Date.parse(date_pair[1]);
+            if(!isNaN(tmp) && tmp > start_stamp){
+                end_stamp = tmp;
+            }
+        }
+        return [new Date(start_stamp), new Date(end_stamp)];
+    }
+
     ctx.command("dccr <arg0:string>", "大餐criminal record")
-    .option('noramdom', '-nr')
-    .usage("dccr @罪人 ")
+    .option('noramdom', '-z')
+    .option('norandom', '--nr', {value: true})
+    .option('date', '-d <:string>')
+    .usage("dccr @罪人 [--nr] [-d date_start[~date_end]]")
     .action(async (argv, arg0)=>{
         if(!arg0){
             return "错误用法";
@@ -468,6 +489,15 @@ image:
             return "错误用法";
         }
         const user_id = elements[0].attrs.id;(/\.(.+?\..+?)$/)
+
+        let start_date: Date = null, end_date: Date = null;
+        if(argv.options.date){
+            let dates = parse_date(argv.options.date);
+            if(!dates){
+                return "日期格式不合法，正确格式为\"起始日期[~结束日期]\""
+            }
+            [start_date, end_date] = dates;
+        }
         
         var records = await ctx.database.select('dc_table')
         .where(row => $.and($.eq(row.user, user_id), $.eq(row.channelId, guild_id)))
@@ -478,9 +508,29 @@ image:
             return h('p', h.at(user_id), "无罪");
         }
 
-        var record = records[0]
+        var random_pick_range = records;
+        var record = records[0];
+        var guilt_range_prefix = "";
+        if(start_date){
+            let min_diff = Math.abs(start_date.getTime() - record.stamp.getTime());
+            let tmp = records.filter(function(r){
+                // set record as the nearest record to start_date by default
+                if(Math.abs(start_date.getTime() - r.stamp.getTime()) < min_diff){
+                    min_diff = Math.abs(start_date.getTime() - r.stamp.getTime());
+                    record = r;
+                }
+                return r.stamp > start_date && r.stamp < end_date;
+            });
+            if(tmp.length > 0){
+                random_pick_range = tmp;
+                record = tmp[tmp.length - 1];
+            }
+            else{
+                guilt_range_prefix = "尽管那几天无罪，";
+            }
+        }
         if(rand){
-            record = Random.pick(records);
+            record = Random.pick(random_pick_range);
         }
         const buffer = fs.readFileSync(path + guild_id + '/' +user_id+'/'+record.path);
         const options:Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric' };
@@ -488,7 +538,7 @@ image:
         var other_guilt = `除此之外还有${records.length-1}条罪证`;
         if(records.length == 1)
             other_guilt = "除此之外是清白的，暂时";
-        return h('p', h.at(user_id), `于${new Date(record.stamp).toLocaleDateString(locale,options)}`,"的罪证在此:", h.image(buffer,qq_img_mime(record.path)),other_guilt);
+        return h('p', guilt_range_prefix, h.at(user_id), `于${new Date(record.stamp).toLocaleDateString(locale,options)}`,"的罪证在此:", h.image(buffer,qq_img_mime(record.path)),other_guilt);
     })
 
     
@@ -519,6 +569,11 @@ image:
     //     return cnt+" records processed";
     // });
 
+    ctx.command('test <arg0:string>', "大餐criminal record")
+    .option('noramdom', '-z')
+    .option('norandom', '--nr', {value: true})
+    .option('date', '-d <:text>')
+    .action(({ options }) => JSON.stringify(options))
 
     // "command" parsing are resolved here
     ctx.on('message', (session) => {
